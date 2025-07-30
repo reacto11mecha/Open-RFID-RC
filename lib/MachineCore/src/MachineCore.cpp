@@ -1,5 +1,11 @@
 #include <MachineCore.h>
 
+boolean success;
+uint8_t uid[] = {0, 0, 0, 0, 0, 0, 0};
+uint8_t uidLength;
+
+PN532_I2C pn532i2c(Wire);
+
 /**
  * https://github.com/reacto11mecha/kel14-attendance-machine/blob/a08a048ceae5cc06c3949578c1860a6c52d3a5c9/kel14-attendance-machine.ino#L48-L51
  */
@@ -34,45 +40,45 @@ bool checkUIDMatch(byte *readUID, byte readLength)
 }
 
 MachineCore::MachineCore()
-    : _mfrc522(SS_PIN, RST_PIN) {}
+    : _nfc(pn532i2c) {}
 
 void MachineCore::begin()
 {
     pinMode(SOLENOID_PIN, OUTPUT);
     pinMode(BUZZER_PIN, OUTPUT);
 
-    SPI.begin();
-    _mfrc522.PCD_Init();
+    _nfc.begin();
+
+    uint32_t versiondata = _nfc.getFirmwareVersion();
+    if (!versiondata)
+    {
+        Serial.print("Didn't find PN53x board");
+        while (1)
+            ; // halt
+    }
+
+    Serial.print("Found chip PN5");
+    Serial.println((versiondata >> 24) & 0xFF, HEX);
+    Serial.print("Firmware ver. ");
+    Serial.print((versiondata >> 16) & 0xFF, DEC);
+    Serial.print('.');
+    Serial.println((versiondata >> 8) & 0xFF, DEC);
+
+    _nfc.setPassiveActivationRetries(0xFF);
+
+    _nfc.SAMConfig();
+
+    Serial.println("PN532 detected!");
 }
 
 bool MachineCore::detectCard()
 {
-    if (!_mfrc522.PICC_IsNewCardPresent())
-        return false;
-
-    if (!_mfrc522.PICC_ReadCardSerial())
-        return false;
-
-    // Serial.print("UID Kartu: ");
-    // for (byte i = 0; i < _mfrc522.uid.size; i++)
-    // {
-    //     Serial.print(_mfrc522.uid.uidByte[i] < 0x10 ? "0" : "");
-    //     Serial.print(_mfrc522.uid.uidByte[i], HEX);
-    //     Serial.print(" ");
-    // }
-    // Serial.println();
-
-    return true;
+    return _nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, &uid[0], &uidLength);
 }
 
 bool MachineCore::cardFound()
 {
-    return checkUIDMatch(_mfrc522.uid.uidByte, _mfrc522.uid.size);
-}
-
-void MachineCore::haltRead()
-{
-    _mfrc522.PICC_HaltA();
+    return checkUIDMatch(&uid[0], uidLength);
 }
 
 void MachineCore::unlockDoor()

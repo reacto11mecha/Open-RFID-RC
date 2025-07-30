@@ -3,8 +3,9 @@
 
 #include <Arduino.h>
 #include <definitions.h>
-#include <SPI.h>
-#include <MFRC522.h>
+#include <Wire.h>
+#include <PN532_I2C.h>
+#include <PN532.h>
 
 #define UID_LENGTH 4
 #define TOTAL_CARDS 3
@@ -19,7 +20,6 @@ public:
     void begin();
     bool detectCard();
     bool cardFound();
-    void haltRead();
 
     void unlockDoor();
     void lockDoor();
@@ -28,7 +28,7 @@ public:
     void buzzerLong();
 
 private:
-    MFRC522 _mfrc522;
+    PN532 _nfc;
 };
 
 #endif

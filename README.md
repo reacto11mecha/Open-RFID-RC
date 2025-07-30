@@ -3,7 +3,7 @@
 Komponen-komponen
 
 1. ESP32
-2. RC522
+2. PN532
 3. OLED Screen
 4. Buzzer
 5. Solenoid pintu

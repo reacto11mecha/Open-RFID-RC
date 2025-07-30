@@ -157,7 +157,6 @@ void scanIDCardTask(void *pvParams)
       xQueueSend(renderQueue, &renderCmd, portMAX_DELAY);
 
       bool found = mc.cardFound();
-      mc.haltRead();
 
       xSemaphoreTake(stateMutex, portMAX_DELAY);
       currentState = found ? FOUND_STATE : NOT_FOUND_STATE;
@@ -225,7 +224,6 @@ void readTouchSensor(void *pvParams)
     {
       if (xSemaphoreTake(stateMutex, portMAX_DELAY) == pdTRUE)
       {
-        mc.haltRead();
         mc.unlockDoor();
         mc.buzzerShort();
 

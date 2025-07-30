@@ -3,20 +3,9 @@
 
 #include <Arduino.h>
 
-#define SS_PIN 5
-#define RST_PIN 17
 #define SOLENOID_PIN 25
-#define BUZZER_PIN 12
+#define BUZZER_PIN 14
 #define TOUCH_PIN 26
-
-/**
- * RC522 PINOUT
- *  RST             17
- *  SDA (SS)        5
- *  SCK             18
- *  MOSI            23
- *  MISO            19
- */
 
 // Buat nandain kondisi alat dari luar
 enum MachineState
