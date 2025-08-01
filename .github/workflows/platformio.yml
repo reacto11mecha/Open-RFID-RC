@@ -26,3 +26,14 @@ jobs:
 
       - name: Build PlatformIO Project
         run: pio run
+
+      - name: Repack Folder
+        run: |
+          mkdir firmware
+          cp .pio/build/esp32dev/firmware.bin ./firmware/firmware_$(date +%Y%m%d_%H%M%S).bin
+
+      - name: Upload Firmware Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: platformio-firmware-${{ github.sha }}
+          path: firmware

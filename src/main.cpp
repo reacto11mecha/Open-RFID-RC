@@ -7,13 +7,11 @@
 void scanIDCardTask(void *pvParams);
 void readTouchSensor(void *pvParams);
 void renderTask(void *pvParams);
-void webServerTask(void *pvParams);
 void resetStandbyModeCount();
 
 TaskHandle_t scanIdCardHandle;
 TaskHandle_t renderTaskHandle;
 TaskHandle_t readTouchHandle;
-TaskHandle_t webServerHandle;
 
 QueueHandle_t renderQueue;
 
@@ -44,10 +42,9 @@ void setup()
   vTaskDelay(pdMS_TO_TICKS(250));
   mc.lockDoor();
 
-  nm.begin();
+  nm.begin(currentState, mc, stateMutex, renderQueue, standbyModeStart);
 
   xTaskCreatePinnedToCore(renderTask, "Render Task", 10000, NULL, 3, &renderTaskHandle, 0);
-  xTaskCreatePinnedToCore(webServerTask, "Web Server Task", 10000, NULL, 1, &webServerHandle, 0);
   xTaskCreatePinnedToCore(scanIDCardTask, "Scan ID Card Task", 10000, NULL, 2, &scanIdCardHandle, 0);
   xTaskCreatePinnedToCore(readTouchSensor, "Read Touch Sensor Task", 15000, NULL, 1, &readTouchHandle, 1);
 }
@@ -248,94 +245,6 @@ void readTouchSensor(void *pvParams)
   }
 }
 
-void webServerTask(void *pvParams)
-{
-  while (1)
-  {
-    WiFiClient client = nm.server.available();
-
-    if (client)
-    {
-      String currentLine = "";
-      while (client.connected())
-      {
-        if (client.available())
-        {
-          char c = client.read();
-          Serial.write(c);
-          nm.header += c;
-
-          if (c == '\n')
-          {
-            if (currentLine.length() == 0)
-            {
-              bool isOpenRequest = (nm.header.indexOf("GET /open") >= 0);
-
-              // Kirim respons HTTP sekarang juga
-              nm.renderWebServer(&client, isOpenRequest);
-
-              if (isOpenRequest && !nm.clicked)
-              {
-                nm.clicked = true;
-
-                // Hentikan pemrosesan client lebih lanjut
-                nm.header = "";
-                client.stop();
-                Serial.println("Client disconnected after open request");
-
-                // Operasi buka pintu dilakukan DI LUAR loop client
-                if (xSemaphoreTake(stateMutex, portMAX_DELAY) == pdTRUE)
-                {
-                  mc.unlockDoor();
-                  mc.buzzerShort();
-
-                  RenderCommand renderCmd = CMD_DRAW_OPEN_BY_NON_CARD_READ;
-                  xQueueSend(renderQueue, &renderCmd, portMAX_DELAY);
-
-                  uint32_t unlockStart = millis();
-
-                  while (millis() - unlockStart < 4500)
-                  {
-                    vTaskDelay(pdMS_TO_TICKS(100));
-                  }
-
-                  mc.lockDoor();
-                  resetStandbyModeCount();
-                  currentState = STANDBY_MODE;
-                  xSemaphoreGive(stateMutex);
-
-                  nm.clicked = false;
-                }
-
-                break; // Keluar dari loop client
-              }
-              else
-              {
-                // Hanya request biasa, lanjutkan normal
-                break;
-              }
-            }
-            else
-            {
-              currentLine = "";
-            }
-          }
-          else if (c != '\r')
-          {
-            currentLine += c;
-          }
-        }
-      }
-
-      nm.header = "";
-      client.stop();
-      Serial.println("Client disconnected.");
-    }
-
-    vTaskDelay(pdMS_TO_TICKS(10));
-  }
-}
-
 void resetStandbyModeCount()
 {
   standbyModeStart = millis();
@@ -343,5 +252,7 @@ void resetStandbyModeCount()
 
 void loop()
 {
-  delay(100);
+  nm.loopWebServer();
+
+  delay(1);
 }
